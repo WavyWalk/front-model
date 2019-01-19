@@ -1,7 +1,8 @@
 {
   "name": "front-model",
-  "version": "1.0",
-  "description": "",
+  "version": "1.0.0",
+  "repository": "WavyWalk/front-model",
+  "description": "Model layer for front-end Typescript based applications",
   "private": true,
   "scripts": {
     "build": "webpack",
