@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "repository": "WavyWalk/front-model",
   "description": "Model layer for front-end Typescript based applications",
-  "private": true,
+  "private": false,
   "scripts": {
     "build": "webpack",
     "buildTsc": "tsc"

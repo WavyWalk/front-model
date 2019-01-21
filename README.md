@@ -8,6 +8,10 @@ Adds a model layer to your Typescript based front-end apps (best works with SPA'
 The good ol' Models on the front-end is nowadays almost forgotten and unused, we're passing some weekly typed non consistent
 objects back and forth, we're using some generic stores. Let's get to the roots!
 Adding models to your React apps makes so many things easier. Combine them with some state management lib, or just use some self written event dispatcher, and you'll feel the difference.
+#How 
+npm i front-model 
+
+or include in package.json
 # Basic example
 ```typescript
 import {BaseModel, Property, HasMany, HasOne, Route} from "FrontModel"
@@ -59,6 +63,38 @@ componentDidMount() {
         user.friends //ModelCollection<User>
         this.setState({user})
     })
+}
+```
+# Model registration
+Due to heavy usage of metaprogramming stuff, in some unreproducible cases (which mostly depend on weather outside), I encountered
+a circular dependencies bugs that were really hard to tackle.
+I couldn't find anything better than introducing a ModelRegistry.
+Basically you create some singleton with e.g. run method in which `ModelRegistry.registeredModels` will be assigned with object
+referencing your model class. That method is supposed to be called on your app bootstrapping. But treat it philosophically,
+you have a file where you can track all the models you have :).
+example: 
+```typescript
+import { User } from './models/User'
+import { Account } from './models/Account'
+import { ModelRegistry } from 'FrontModel'
+export class ModelRegistrator {
+  //THIS UGLY HACK SOLVES SOME NASTY CIRCULAR DEPENDENCIES BUGS!
+  static run(){
+    ModelRegistry.registeredModels = {
+        User,
+        Account
+    }
+  }
+
+}
+//in init application, in first context after interpreter done it's job
+export function initApplication() {
+    ModelRegistrator.run() //call that dude
+    render(
+        <BrowserRouter>
+            <Route path="/" component={ApplicationComponent}/>
+        </BrowserRouter>,
+        document.getElementById("app"))
 }
 ```
 # Model properties
@@ -290,38 +326,7 @@ export class Create extends MixinFormableTrait(BaseReactComponent) { // from oth
     }
 }
 ```
-# Model registration
-Due to heavy usage of metaprogramming stuff, in some unreproducible cases (which mostly depend on weather outside), I encountered
-a circular dependencies bugs that were really hard to tackle.
-I couldn't find anything better than introducing a ModelRegistry.
-Basically you create some singleton with e.g. run method in which `ModelRegistry.registeredModels` will be assigned with object
-referencing your model class. That method is supposed to be called on your app bootstrapping. But treat it philosophically,
-you have a file where you can track all the models you have :).
-example: 
-```typescript
-import { User } from './models/User'
-import { Account } from './models/Account'
-import { ModelRegistry } from 'FrontModel'
-export class ModelRegistrator {
-  //THIS UGLY HACK SOLVES SOME NASTY CIRCULAR DEPENDENCIES BUGS!
-  static run(){
-    ModelRegistry.registeredModels = {
-        User,
-        Account
-    }
-  }
 
-}
-//in init application, in first context after interpreter done it's job
-export function initApplication() {
-    ModelRegistrator.run() //call that dude
-    render(
-        <BrowserRouter>
-            <Route path="/" component={ApplicationComponent}/>
-        </BrowserRouter>,
-        document.getElementById("app"))
-}
-```
 # Dependences
 es-6 promises.
 For Typescript enable decoration processing.
