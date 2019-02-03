@@ -5,3 +5,4 @@ export { HasOne } from "./annotations/HasOne";
 export { BaseModel } from "./BaseModel";
 export { Route } from "./annotations/ModelRoute";
 export { ModelRegistry } from './ModelRegistry'
+export {ModelCollection} from './ModelCollection'

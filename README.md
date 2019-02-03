@@ -14,26 +14,26 @@ npm i front-model
 or include in package.json
 # Basic example
 ```typescript
-import {BaseModel, Property, HasMany, HasOne, Route} from "FrontModel"
+import {BaseModel, Property, HasMany, HasOne, Route, ModelCollection, RequestOptions} from "FrontModel"
 class User extends BaseModel {
         
     @Property
-    id: number
+    id: number | null = null
    
     @Property
-    name: String
+    name: string | null = null
 
     @HasMany("User")
-    friends: Array<User>
+    friends!: ModelCollection<User>
     
     @HasOne("Account")
-    account: Account
+    account: Account | null = null
     
     @Route("GET", {url: "api/users/:id", defaultWilds: ["id"]})
-    static show: (options?: RequestOptions) => Promise<User>
+    static show!: (options?: RequestOptions) => Promise<User>
     
     @Route("POST", {url: "api/users"})
-    create: (options?: RequestOptions) => Promise<User>
+    create!: (options?: RequestOptions) => Promise<User>
 }
 
 let friend = new User({name: "foo"})
@@ -199,10 +199,10 @@ following before/after handlers will be provided (you can override them if you w
 basically:
 ```typescript
 @Route("GET", {url: "api/user"})
-static index: (options?: RequestOptions) => Promise<ModelCollection<User>> //no need to define before/after handlers
+static index!: (options?: RequestOptions) => Promise<ModelCollection<User>> //no need to define before/after handlers
 
 @Route("POST", {url: "api/user/:id", defaultWilds: ["id"]})
-create: (options?: RequestOptions) => Promise<User> //no need also as the name itself hints of it
+create!: (options?: RequestOptions) => Promise<User> //no need also as the name itself hints of it
 
 
 User.index().then((users)=>{
@@ -244,7 +244,7 @@ If you have a @Property decorated property, and if you implement function \[prop
 this function will be called during validation (e.g. if you want to prevalidate on client before sending to server).
 ```typescript
 @Property
-name: String
+name: String | null = null
 
 nameValidator() {
     if (notFunky(name)) {
