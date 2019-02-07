@@ -14,7 +14,7 @@ npm i front-model
 or include in package.json
 # Basic example
 ```typescript
-import {BaseModel, Property, HasMany, HasOne, Route, ModelCollection, RequestOptions} from "FrontModel"
+import {BaseModel, Property, HasMany, HasOne, Route, ModelCollection, RequestOptions} from "front-model"
 class User extends BaseModel {
         
     @Property
@@ -76,7 +76,7 @@ example:
 ```typescript
 import { User } from './models/User'
 import { Account } from './models/Account'
-import { ModelRegistry } from 'FrontModel'
+import { ModelRegistry } from 'front-model'
 export class ModelRegistrator {
   //THIS UGLY HACK SOLVES SOME NASTY CIRCULAR DEPENDENCIES BUGS!
   static run(){
