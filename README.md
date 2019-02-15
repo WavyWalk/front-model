@@ -18,16 +18,16 @@ import {BaseModel, Property, HasMany, HasOne, Route, ModelCollection, RequestOpt
 class User extends BaseModel {
         
     @Property
-    id: number | null = null
+    id?: number
    
     @Property
-    name: string | null = null
+    name?: string
 
     @HasMany("User")
     friends!: ModelCollection<User>
     
     @HasOne("Account")
-    account: Account | null = null
+    account?: Account
     
     @Route("GET", {url: "api/users/:id", defaultWilds: ["id"]})
     static show!: (options?: RequestOptions) => Promise<User>
@@ -244,7 +244,7 @@ If you have a @Property decorated property, and if you implement function \[prop
 this function will be called during validation (e.g. if you want to prevalidate on client before sending to server).
 ```typescript
 @Property
-name: String | null = null
+name?: String
 
 nameValidator() {
     if (notFunky(name)) {
