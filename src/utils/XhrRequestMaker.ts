@@ -4,6 +4,8 @@ import { RequestOptions } from '../annotations/ModelRoute'
 
 export class XhrRequestMaker {
 
+    static userDefinedRequestOptionsHandler: (options: RequestOptions)=>void
+
     static onFailHandler: (xhr: XMLHttpRequest)=>void
 
     static get(options: RequestOptions): DefferedPromise<any>{
@@ -42,6 +44,9 @@ export class XhrRequestMaker {
     constructor(options: RequestOptions){
         this.deferredPromise = options.deferredPromise
         this.options = options
+        if (XhrRequestMaker.userDefinedRequestOptionsHandler) {
+            XhrRequestMaker.userDefinedRequestOptionsHandler(this.options)
+        }
         this.xhr = new XMLHttpRequest()
         this.setParameters()
         this.xhr.open(this.options.httpMethod, this.options.url)
@@ -57,13 +62,16 @@ export class XhrRequestMaker {
         this.xhr.onloadend = function (e) {
         }
         this.setHeaders()
-        
         this.setOnLoad()
         this.send()
     }
 
     send(){
         if (this.options.httpMethod != "GET" && this.options.params) {
+            if (this.options.extraParams) {
+                this.options.params = {...this.options.params, ...this.options.extraParams}
+            }
+
             if (this.options.serializeAsForm) {
                 this.xhr.send( this.createFormData(this.options.params) )
             } else {
@@ -77,7 +85,11 @@ export class XhrRequestMaker {
     setParameters(){
         let options = this.options
         if (options.httpMethod === "GET" && options.params) {
-            options.url = `${options.url}?${this.objectToQueryString(options.params)}`
+            if (options.url!.indexOf('?')) {
+                options.url = `${options.url}&${this.objectToQueryString(options.params)}`
+            } else {
+                options.url = `${options.url}?${this.objectToQueryString(options.params)}`
+            }
         } else {
             
         }
@@ -123,11 +135,19 @@ export class XhrRequestMaker {
 
     setHeaders(){
         if (this.options.requestHeaders) {
-            this.xhr.setRequestHeader(this.options.requestHeaders[0], this.options.requestHeaders[1])
-        } else if (this.options.serializeAsForm) {
-            null
-        } else {
-            this.xhr.setRequestHeader('Content-Type', 'application/json')
+            for (let key of Object.keys(this.options.requestHeaders)) {
+                let value = this.options.requestHeaders[key]
+                this.xhr.setRequestHeader(key, value)
+            }
+        }
+
+        if (this.options.requestHeaders && ! this.options.requestHeaders['Content-Type']) {
+            if (this.options.serializeAsForm) {
+                //will automatically be set proper content type
+            } else {
+                this.xhr.setRequestHeader('Content-Type', 'application/json')
+            }
+
         }
     }
 

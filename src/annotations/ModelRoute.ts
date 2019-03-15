@@ -18,7 +18,7 @@ export interface RequestOptions {
     responseType?: string,
     //providedWilds?: {[id:string]:any},
     prefix?: string,
-    requestHeaders?: Array<string>,
+    requestHeaders?: {[id:string]:any},
     httpMethod?: string,
     resolveWithJson?: boolean,
     deferredPromise?: DefferedPromise<any>
