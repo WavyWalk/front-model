@@ -48,7 +48,13 @@ export class XhrRequestMaker {
             XhrRequestMaker.userDefinedRequestOptionsHandler(this.options)
         }
         this.xhr = new XMLHttpRequest()
+
+        if (this.options.extraParams) {
+            this.options.params = {...this.options.params, ...this.options.extraParams}
+        }
+
         this.setParameters()
+
         this.xhr.open(this.options.httpMethod, this.options.url)
         if (options.responseType) {
           (this.xhr as any).responseType = options.responseType
@@ -68,10 +74,6 @@ export class XhrRequestMaker {
 
     send(){
         if (this.options.httpMethod != "GET" && this.options.params) {
-            if (this.options.extraParams) {
-                this.options.params = {...this.options.params, ...this.options.extraParams}
-            }
-
             if (this.options.serializeAsForm) {
                 this.xhr.send( this.createFormData(this.options.params) )
             } else {
@@ -85,13 +87,7 @@ export class XhrRequestMaker {
     setParameters(){
         let options = this.options
         if (options.httpMethod === "GET" && options.params) {
-            if (options.url!.indexOf('?')) {
-                options.url = `${options.url}&${this.objectToQueryString(options.params)}`
-            } else {
-                options.url = `${options.url}?${this.objectToQueryString(options.params)}`
-            }
-        } else {
-            
+            options.url = `${options.url}?${this.objectToQueryString(options.params)}`
         }
     }
 
