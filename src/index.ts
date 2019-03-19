@@ -1,9 +1,9 @@
-export { RequestOptions } from "./annotations/ModelRoute";
+export { RequestOptions } from "./annotations/ApiEndpoint";
 export { Property } from "./annotations/Property";
 export { HasMany } from "./annotations/HasMany";
 export { HasOne } from "./annotations/HasOne";
 export { BaseModel } from "./BaseModel";
-export { Route } from "./annotations/ModelRoute";
+export { ApiEndpoint } from "./annotations/ApiEndpoint";
 export { ModelRegistry } from './ModelRegistry';
 export { ModelCollection } from './ModelCollection';
 export { XhrRequestMaker } from './utils/XhrRequestMaker';

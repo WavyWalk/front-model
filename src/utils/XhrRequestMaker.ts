@@ -1,6 +1,6 @@
 import { DefferedPromise } from './DeferredPromise';
 import { IModelProperties } from '../interfaces/IModelProperties';
-import { RequestOptions } from '../annotations/ModelRoute'
+import { RequestOptions } from '../annotations/ApiEndpoint'
 
 export class XhrRequestMaker {
 

@@ -69,17 +69,17 @@ class UrlPreparator {
 
 }
 
-interface RouteOptions {
+interface ApiEndpointOptions {
     url: string,
     defaultWilds?: Array<string>
 }
 
-class ModelRouteHandler {
-    options: RouteOptions
+class ApiEndpointHandler {
+    options: ApiEndpointOptions
     urlPreparator: UrlPreparator
     wildsThatAreSetFromSameNamedMethod: { [id: string]: boolean } = {}
 
-    constructor(options: RouteOptions) {
+    constructor(options: ApiEndpointOptions) {
         this.options = options
 
         this.urlPreparator = new UrlPreparator(options.url)
@@ -129,18 +129,18 @@ class ModelRouteHandler {
 }
 
 
-export function Route(httpMethod: string, options: RouteOptions) {
+export function ApiEndpoint(httpMethod: string, options: ApiEndpointOptions) {
 
     return function (target: BaseModel | typeof BaseModel, propertyName: string) {
 
-        let routeHandler = new ModelRouteHandler(options)
+        let apiEndpointHandler = new ApiEndpointHandler(options)
 
         let requestFunction = function (options: RequestOptions = {}): DefferedPromise<any> {
                 let beforeRequestFunc = (this as any)[`before${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`]
                 let afterRequestFunc = (this as any)[`after${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`]
 
                 options.caller = this
-                options.url = routeHandler.produceUrl(this, options.wilds, options.prefix)
+                options.url = apiEndpointHandler.produceUrl(this, options.wilds, options.prefix)
                 options.httpMethod = httpMethod
 
                 if (!options.resolveWithJson) {

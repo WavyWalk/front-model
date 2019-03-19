@@ -14,7 +14,7 @@ npm i front-model
 or include in package.json
 # Basic example
 ```typescript
-import {BaseModel, Property, HasMany, HasOne, Route, ModelCollection, RequestOptions} from "front-model"
+import {BaseModel, Property, HasMany, HasOne, ApiEndpoint, ModelCollection, RequestOptions} from "front-model"
 class User extends BaseModel {
         
     @Property
@@ -29,10 +29,10 @@ class User extends BaseModel {
     @HasOne("Account")
     account?: Account
     
-    @Route("GET", {url: "api/users/:id", defaultWilds: ["id"]})
+    @ApiEndpoint("GET", {url: "api/users/:id", defaultWilds: ["id"]})
     static show!: (options?: RequestOptions) => Promise<User>
     
-    @Route("POST", {url: "api/users"})
+    @ApiEndpoint("POST", {url: "api/users"})
     create!: (options?: RequestOptions) => Promise<User>
 }
 
@@ -91,9 +91,9 @@ export class ModelRegistrator {
 export function initApplication() {
     ModelRegistrator.run() //call that dude
     render(
-        <BrowserRouter>
-            <Route path="/" component={ApplicationComponent}/>
-        </BrowserRouter>,
+        <BrowserApiEndpointr>
+            <ApiEndpoint path="/" component={ApplicationComponent}/>
+        </BrowserApiEndpointr>,
         document.getElementById("app"))
 }
 ```
@@ -131,17 +131,17 @@ More preferred way - if you implement for example `static jsonRoot = "user"` on 
 
 Treat your server as a db/pure api. Communicate with it in restfull manner.
 
-Use @Route decorations with appropriate properties (take look at it's interface implementation for details).
+Use @ApiEndpoint decorations with appropriate properties (take look at it's interface implementation for details).
 
 You can decorate both static and instance methods.
 
-Basically you provide Route an HTTP method, and configuration object with (minimum required) url.
+Basically you provide ApiEndpoint an HTTP method, and configuration object with (minimum required) url.
 
 If in url you provide something prefixed with ':', this token will be treated as named parameter.
 
 You can either manually provide it when calling a 'route' call, or allow it to be treated automatically.
 ```typescript
-@Route("POST", {url: "/api/user/:id/foo", defaultWilds: ["id"]}) //defaultWilds specifies that :id, should be replaced with value of id property.
+@ApiEndpoint("POST", {url: "/api/user/:id/foo", defaultWilds: ["id"]}) //defaultWilds specifies that :id, should be replaced with value of id property.
 create: (options?: RequestOptions) => Promise<User> //always specify a type without implementation, method it'self will be programmatically added and implemented
 
 user.id = 1
@@ -157,7 +157,7 @@ after\[capitalized name of the method]Request(options: RequestOptions)
 You get your response in after method via options.response.
 
 ```typescript
-@Route("GET", {url: '/api/user/funky/:id}')
+@ApiEndpoint("GET", {url: '/api/user/funky/:id}')
 saveFunkyUser: (options?: RequestOptions) => Promise<User>
 
 beforeSaveFunkyUserRequest(options: RequestOptions) {
@@ -198,10 +198,10 @@ following before/after handlers will be provided (you can override them if you w
 
 basically:
 ```typescript
-@Route("GET", {url: "api/user"})
+@ApiEndpoint("GET", {url: "api/user"})
 static index!: (options?: RequestOptions) => Promise<ModelCollection<User>> //no need to define before/after handlers
 
-@Route("POST", {url: "api/user/:id", defaultWilds: ["id"]})
+@ApiEndpoint("POST", {url: "api/user/:id", defaultWilds: ["id"]})
 create!: (options?: RequestOptions) => Promise<User> //no need also as the name itself hints of it
 
 

@@ -5,7 +5,7 @@ import { IAssociationsConfig } from './interfaces/IAssociationsConfig';
 import { ModelCollection } from './ModelCollection'
 import {MixinSerializableTrait} from "./modelTraits/MixinSerializableTrait"
 import {MixinValidatableTrait} from "./modelTraits/MixinValidatableTrait"
-import { RequestOptions } from './annotations/ModelRoute'
+import { RequestOptions } from './annotations/ApiEndpoint'
 
 class ModelClassMixinContainer {
     constructor(...args: Array<any>){}
