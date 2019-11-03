@@ -137,14 +137,15 @@ export class XhrRequestMaker {
             }
         }
 
-        if (this.options.requestHeaders && ! this.options.requestHeaders['Content-Type']) {
+        if (this.options.requestHeaders && this.options.requestHeaders['Content-Type']) {
             if (this.options.serializeAsForm) {
                 //will automatically be set proper content type
-            } else {
-                this.xhr.setRequestHeader('Content-Type', 'application/json')
             }
-
+        } else {
+            this.xhr.setRequestHeader('Content-Type', 'application/json')
         }
+
+
     }
 
     objectToQueryString(objectToSerialize: {[id: string]: any}, prefix?: string): string {
