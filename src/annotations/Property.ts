@@ -4,10 +4,12 @@ export function Property(
     propertyName: string
 ) {
     let getter = function() {
+        //@ts-ignore
         return this.properties[propertyName]
     }
 
     let setter = function(valueToassign: any) {
+        //@ts-ignore
         this.properties[propertyName] = valueToassign
     }
     

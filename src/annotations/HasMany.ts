@@ -5,14 +5,17 @@ import { BaseModel } from '../BaseModel';
 import { ModelCollection } from '../ModelCollection';
 import { ModelRegistry } from '../ModelRegistry'
 
-export function HasMany(stringifiedClassName: string, parseAliases: Array<string> = null, thatConstructor?: IModelConstructor) {
+export function HasMany(stringifiedClassName: string, parseAliases: Array<string> | null = null, thatConstructor?: IModelConstructor) {
 
     return function(target: BaseModel, propertyName: string){
 
+
         let get = function(){
+            //@ts-ignore
             let valueAtProperty = this.properties[propertyName]
             if (valueAtProperty == null) {
                 let defaultValue = new ModelCollection<BaseModel>()
+                //@ts-ignore
                 this[propertyName] = defaultValue
                 return defaultValue   
             } else {
@@ -22,7 +25,7 @@ export function HasMany(stringifiedClassName: string, parseAliases: Array<string
         }
 
         let set = function(valueToSet: ModelCollection<BaseModel>) {
-
+            //@ts-ignore
             this.properties[propertyName] = valueToSet
         }
 

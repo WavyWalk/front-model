@@ -1,48 +1,47 @@
-import { DefferedPromise } from './DeferredPromise';
-import { IModelProperties } from '../interfaces/IModelProperties';
-import { RequestOptions } from '../annotations/ApiEndpoint'
+import {IModelProperties} from '../interfaces/IModelProperties';
+import {RequestOptions} from '../annotations/ApiEndpoint'
 
 export class XhrRequestMaker {
 
-    static userDefinedRequestOptionsHandler: (options: RequestOptions)=>void
+    static userDefinedRequestOptionsHandler: (options: RequestOptions) => void
 
-    static onFailHandler: (xhr: XMLHttpRequest)=>void
+    static onFailHandler: (xhr: XMLHttpRequest) => void
 
-    static get(options: RequestOptions): DefferedPromise<any>{
+    static get(options: RequestOptions): Promise<any> {
         options.httpMethod = "GET"
         let requestMaker = new this(options)
-        return requestMaker.deferredPromise
+        return requestMaker.rootPromise
     }
 
-    static post(options: RequestOptions): DefferedPromise<any>{
+    static post(options: RequestOptions): Promise<any> {
         options.httpMethod = "POST"
         let requestMaker = new this(options)
-        return requestMaker.deferredPromise
+        return requestMaker.rootPromise
     }
 
-    static put<T>(options: RequestOptions): DefferedPromise<any>{
+    static put<T>(options: RequestOptions): Promise<any> {
         options.httpMethod = "PUT"
         let requestMaker = new this(options)
-        return requestMaker.deferredPromise
+        return requestMaker.rootPromise
     }
 
-    static delete<T>(options: RequestOptions): DefferedPromise<any>{
+    static delete<T>(options: RequestOptions): Promise<any> {
         options.httpMethod = "DELETE"
         let requestMaker = new this(options)
-        return requestMaker.deferredPromise
+        return requestMaker.rootPromise
     }
 
-    static create(options: RequestOptions): DefferedPromise<any>{
+    static create(options: RequestOptions): Promise<any> {
         let requestMaker = new this(options)
-        return requestMaker.deferredPromise
+        return requestMaker.rootPromise
     }
 
-    deferredPromise: DefferedPromise<any>
+    rootPromise: Promise<any>
     xhr: XMLHttpRequest
     options: RequestOptions
 
-    constructor(options: RequestOptions){
-        this.deferredPromise = options.deferredPromise
+    constructor(options: RequestOptions) {
+        this.rootPromise = options.rootPromise as any
         this.options = options
         if (XhrRequestMaker.userDefinedRequestOptionsHandler) {
             XhrRequestMaker.userDefinedRequestOptionsHandler(this.options)
@@ -55,9 +54,9 @@ export class XhrRequestMaker {
 
         this.setParameters()
 
-        this.xhr.open(this.options.httpMethod, this.options.url)
+        this.xhr.open(this.options.httpMethod as any, this.options.url as any)
         if (options.responseType) {
-          (this.xhr as any).responseType = options.responseType
+            (this.xhr as any).responseType = options.responseType
         }
         this.xhr.onprogress = function (e) {
             if (e.lengthComputable) {
@@ -72,93 +71,103 @@ export class XhrRequestMaker {
         this.send()
     }
 
-    send(){
+    send() {
         if (this.options.httpMethod != "GET" && this.options.params) {
             if (this.options.serializeAsForm) {
-                this.xhr.send( this.createFormData(this.options.params) )
+                this.xhr.send(this.createFormData(this.options.params))
             } else {
-              this.xhr.send(JSON.stringify(this.options.params))
+                this.xhr.send(JSON.stringify(this.options.params))
             }
         } else {
             this.xhr.send()
         }
     }
 
-    setParameters(){
+    setParameters() {
         let options = this.options
         if (options.httpMethod === "GET" && options.params) {
             options.url = `${options.url}?${this.objectToQueryString(options.params)}`
         }
     }
 
-    setOnLoad(){
-        this.xhr.onload = ()=>{
-            if (this.xhr.status === 200) {
+    setOnLoad() {
+        this.xhr.onload = () => {
+            if (this.options.yieldRawResponse) {
+                this.options.rootResolve!(this.xhr)
+                return
+            }
+            if (this.xhr.status === 200 || this.xhr.status === 201) {
                 let contentType = this.xhr.getResponseHeader('Content-Type')
                 if (this.options.responseType === "blob") {
                     if (contentType === "blob") {
-                        this.deferredPromise.resolve({BLOB_IS_RETURNED: true, BLOB_RESPONSE: this.xhr.response}) 
+                        this.options.rootResolve!({BLOB_IS_RETURNED: true, BLOB_RESPONSE: this.xhr.response})
                     } else {
                         const blob = new Blob([this.xhr.response], {type: "text/plain"});
                         const reader = new FileReader();
                         reader.addEventListener('loadend', (e) => {
-                          const text = (e.srcElement as any).result;
-                          this.deferredPromise.resolve(JSON.parse(text)) 
+                            const text = (e.srcElement as any).result;
+                            this.options.rootResolve!(JSON.parse(text))
                         });
                         reader.readAsText(blob);
-                    }  
+                    }
                     return
                 }
                 if (this.options.resolveWithJson) {
                     let response = this.xhr.responseText
                     if (response) {
-                        this.deferredPromise.resolve(JSON.parse(this.xhr.responseText))   
+                        try {
+                            this.options.rootResolve!(JSON.parse(this.xhr.responseText))
+                        } catch (e) {
+                            console.error(e)
+                            if (XhrRequestMaker.onFailHandler) {
+                                XhrRequestMaker.onFailHandler(this.xhr)
+                            } else {
+                                this.options.rootReject!(this.xhr)
+                            }
+                        }
                     } else {
-                        this.deferredPromise.resolve({})
+                        this.options.rootResolve!({})
                     }
                 } else {
-                    this.deferredPromise.resolve(this.xhr)
+                    this.options.rootResolve!(this.xhr)
                 }
-            }
-            else {
+            } else {
                 if (XhrRequestMaker.onFailHandler) {
                     XhrRequestMaker.onFailHandler(this.xhr)
+                } else {
+                    this.options.rootReject!(this.xhr)
                 }
-                this.deferredPromise.reject(this.xhr)
             }
         }
     }
 
-    setHeaders(){
+    setHeaders() {
         if (this.options.requestHeaders) {
             for (let key of Object.keys(this.options.requestHeaders)) {
                 let value = this.options.requestHeaders[key]
                 this.xhr.setRequestHeader(key, value)
             }
         }
-
-        if (this.options.requestHeaders && this.options.requestHeaders['Content-Type']) {
-            if (this.options.serializeAsForm) {
-                //will automatically be set proper content type
-            }
-        } else {
+        if (!this.options.requestHeaders || !this.options.requestHeaders['Content-Type']) {
             this.xhr.setRequestHeader('Content-Type', 'application/json')
         }
-
-
     }
 
-    objectToQueryString(objectToSerialize: {[id: string]: any}, prefix?: string): string {
-        var str = [], p;
-        for(p in objectToSerialize) {
-          if (objectToSerialize.hasOwnProperty(p)) {
-            var k = prefix ? prefix + "[" + p + "]" : p, v = objectToSerialize[p];
-            str.push((v !== null && typeof v === "object") ?
-              this.objectToQueryString(v, k) :
-              encodeURIComponent(k) + "=" + encodeURIComponent(v));
-          }
+    objectToQueryString(objectToSerialize: { [id: string]: any }, prefix?: string): string {
+        let strBuilder = []
+        for (let property in objectToSerialize) {
+            if (!objectToSerialize.hasOwnProperty(property)) {
+                continue
+            }
+            let hashedKeyPath = prefix ? prefix + "[" + property + "]" : property
+            let value = objectToSerialize[property];
+            if (value !== null && typeof value === "object") {
+                strBuilder.push(this.objectToQueryString(value, hashedKeyPath))
+            } else {
+                strBuilder.push(encodeURIComponent(hashedKeyPath) + "=" + encodeURIComponent(value))
+            }
         }
-        return str.join("&");
+        return strBuilder.join("&");
     }
 
     createFormData(object: any, form?: FormData, namespace?: string): FormData {
@@ -177,58 +186,6 @@ export class XhrRequestMaker {
             }
         }
         return formData;
-    }
-
-    serializeToFormData(val: IModelProperties, formData: FormData, track: string = ""): FormData {
-        if (Object.prototype.toString.call(val) === '[object Array]') {
-            for (let index: number = 0; index < (val as Array<any>).length; index++) {
-                let value = (val as Array<any>)[index]
-                if (index === 0) {
-                    track = track + "[#{index}]"
-                } else {
-                    //#last length will grab the string depending on it's digits, eg [1], i 3 but [111] is not
-                    let lastLength = ((index - 1).toString().length + 3)
-                    let substringed = track.substring(0, track.length - lastLength)
-                    track = substringed + "[#{index}]"
-                }
-                this.serializeToFormData(value, formData, track)
-            }        
-        } else if (this.isPlainObject(val)) {
-            for (let key of Object.keys(val)) {
-                let value = val[key]
-                let _track: string = null;
-                if (track === null) {
-                  _track = key
-                } else {
-                  _track = `${track}[${key}]`
-                }
-                this.serializeToFormData(value, formData, _track)
-            }  
-        } else {
-            formData.append(track, val as any)
-        }
-        return formData
-    }
-
-
-    isPlainObject(obj: any): boolean {
-
-        // Basic check for Type object that's not null
-        if (typeof obj == 'object' && obj !== null) {
-
-          // If Object.getPrototypeOf supported, use it
-          if (typeof Object.getPrototypeOf == 'function') {
-            var proto = Object.getPrototypeOf(obj);
-            return proto === Object.prototype || proto === null;
-          }
-          
-          // Otherwise, use internal class
-          // This should be reliable as if getPrototypeOf not supported, is pre-ES5
-          return Object.prototype.toString.call(obj) == '[object Object]';
-        }
-        
-        // Not an object
-        return false;
     }
 
 }

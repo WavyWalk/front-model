@@ -1,7 +1,6 @@
 import {BaseModel} from "../BaseModel"
 import {IModelProperties} from '../interfaces/IModelProperties';
-import {XhrRequestMaker} from '../utils/XhrRequestMaker';
-import {DefferedPromise} from '../utils/DeferredPromise';
+import {XhrRequestMaker} from '../index';
 
 
 export interface RequestOptions {
@@ -16,16 +15,18 @@ export interface RequestOptions {
     arbitrary?: any,
     params?: IModelProperties,
     responseType?: string,
-    //providedWilds?: {[id:string]:any},
     prefix?: string,
-    requestHeaders?: {[id:string]:any},
+    requestHeaders?: { [id: string]: any } | null,
     httpMethod?: string,
     resolveWithJson?: boolean,
-    deferredPromise?: DefferedPromise<any>
+    rootPromise?: Promise<any>,
+    rootResolve?: (...args: any[]) => any,
+    rootReject?: ((...args: any[]) => any),
 }
 
+
 class UrlPreparator {
-    hasWilds: boolean
+    hasWilds!: boolean
     wildsToIndexMap: { [id: string]: number } = {}
     splittedUrl: Array<string>
     url: string
@@ -46,14 +47,14 @@ class UrlPreparator {
         }
     }
 
-    produceUrl(options?: { wildValues?: { [id: string]: any }, prefix?: string }): string {
-        let url: string = undefined
+    produceUrl(options?: { wildValues?: { [id: string]: any } | null, prefix?: string }): string {
+        let url: string | undefined
 
         if (this.hasWilds) {
             let clonedSplitted = this.splittedUrl.slice(0)
-            for (let key of Object.keys(options.wildValues)) {
+            for (let key of Object.keys(options!.wildValues!)) {
                 let index = this.wildsToIndexMap[key]
-                clonedSplitted[index] = options.wildValues[key]
+                clonedSplitted[index] = options!.wildValues![key]
             }
             url = clonedSplitted.join("/")
         } else {
@@ -92,17 +93,13 @@ class ApiEndpointHandler {
 
     }
 
-    makeRequest(options: RequestOptions) {
-
-    }
-
     produceUrl(
         caller: BaseModel,
         providedWilds?: { [id: string]: any },
         prefix?: string
     ): string {
         if (this.urlPreparator.hasWilds) {
-            let wildValues = this.populateWildValues(caller, providedWilds)
+            let wildValues = this.populateWildValues(caller, providedWilds!)
             return this.urlPreparator.produceUrl({wildValues, prefix})
         } else {
             return this.urlPreparator.produceUrl({wildValues: null, prefix})
@@ -135,9 +132,11 @@ export function ApiEndpoint(httpMethod: string, options: ApiEndpointOptions) {
 
         let apiEndpointHandler = new ApiEndpointHandler(options)
 
-        let requestFunction = function (options: RequestOptions = {}): DefferedPromise<any> {
-                let beforeRequestFunc = (this as any)[`before${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`]
-                let afterRequestFunc = (this as any)[`after${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`]
+        let requestFunction = async function (this: BaseModel | any, options: RequestOptions = {}): Promise<any> {
+
+                let beforeRequestFunc = this[`before${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`]
+
+                let afterRequestFunc = this[`after${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`]
 
                 options.caller = this
                 options.url = apiEndpointHandler.produceUrl(this, options.wilds, options.prefix)
@@ -148,10 +147,9 @@ export function ApiEndpoint(httpMethod: string, options: ApiEndpointOptions) {
                 }
 
                 if (beforeRequestFunc) {
-                    (this as any)[`before${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`](options)
+                    this[`before${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`](options)
                 }
-
-                if ((this as BaseModel).hasFile) {
+                if (this.hasFile) {
                     options.serializeAsForm = true
                 }
 
@@ -160,18 +158,28 @@ export function ApiEndpoint(httpMethod: string, options: ApiEndpointOptions) {
                     options.requestHeaders = null
                 }
 
-                options.deferredPromise = new DefferedPromise<any>()
+                let rootResolve!: (...args: any[])=>any
+                let rootReject!: (...args: any[])=>any
 
-                //options.deferredPromise.catch((reason: any)=>{throw reason as any})
+                options.rootPromise = new Promise((resolve, reject)=>{
+                    rootResolve = resolve
+                    rootReject = reject
+                })
 
-                XhrRequestMaker.create(options as RequestOptions)
+                options.rootReject = rootReject
+                options.rootResolve = rootResolve
 
-                if (afterRequestFunc) {
-                    (this as any)[`after${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`](options as RequestOptions)
+                const requestResult = XhrRequestMaker.create(options as RequestOptions)
+
+                if (options.yieldRawResponse) {
+                    return await requestResult
                 }
 
+                if (afterRequestFunc) {
+                    return await this[`after${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`](options as RequestOptions)
+                }
 
-                return options.deferredPromise
+                return await requestResult
             }
 
         ;(target as any)[propertyName] = requestFunction

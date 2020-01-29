@@ -1,6 +1,6 @@
 {
   "name": "front-model",
-  "version": "1.0.11",
+  "version": "1.1.0",
   "repository": "WavyWalk/front-model",
   "description": "Model layer for front-end Typescript based applications",
   "private": false,
@@ -19,7 +19,7 @@
   "devDependencies": {
     "webpack": "^4.28.4",
     "webpack-cli": "^3.2.1",
-    "typescript": "^3.2.2",
+    "typescript": "^3.7.5",
     "es6-promise": "^4.2.5"
   }
 }

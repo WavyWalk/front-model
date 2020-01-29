@@ -9,8 +9,8 @@ export function MixinValidatableTrait<TBase extends AnyConstructor>(Base: TBase)
     
     return class ValidatableTrait extends Base {
 
-        properties: IModelProperties
-        errors: IErrorsContainer
+        properties!: IModelProperties
+        errors?: IErrorsContainer | null
         hasFile: Boolean = false
 
         getErrorsFor(propertyName: string): Array<string> | undefined {
@@ -18,6 +18,16 @@ export function MixinValidatableTrait<TBase extends AnyConstructor>(Base: TBase)
               return this.errors[propertyName]
             } else {
                return undefined
+            }
+        }
+
+        getFirstErrorFor(propertyName: string) {
+            return this.getErrorsFor(propertyName)?.[0]
+        }
+
+        removeErrorsFor(propertyName: string) {
+            if (this.errors) {
+                delete this.errors[propertyName]
             }
         }
 
@@ -35,6 +45,22 @@ export function MixinValidatableTrait<TBase extends AnyConstructor>(Base: TBase)
             }
         }
 
+        removeHasNestedErrorsFlag() {
+
+        }
+
+        removeSpecificErrorFrom(propertyName: string, error: any) {
+            const errors = this.getErrorsFor(propertyName)
+            if (!errors) {
+                return
+            }
+            const index = errors.indexOf(error)
+            if (index < 0) {
+                return
+            }
+            errors.splice(index, 1)
+        }
+
         containsSpecificError(propertyName: string, errorText: string): boolean {
           let errors = this.getErrorsFor(propertyName)
           if (errors) {
@@ -47,12 +73,18 @@ export function MixinValidatableTrait<TBase extends AnyConstructor>(Base: TBase)
           return false
         }
         
-        validate(){
+        validate(options?: {validateOnly?: string[], exclude?: string[]}){
             this.errors = undefined
-            for (let key of Object.keys(this.properties)) {
+            let propertiesToValidate = Object.keys(this.properties)
+            if (options?.validateOnly) {
+                propertiesToValidate = options.validateOnly as any
+            } else if (options?.exclude) {
+                propertiesToValidate = propertiesToValidate.filter((it)=>{return !options.exclude!.includes(it as any)})
+            }
+            for (let key of propertiesToValidate) {
                 let value = this.properties[key]
                 let validator = (this as any)[`${key}Validator`]
-                if (!!validator && typeof validator === "function") {
+                if (validator) {
                     (this as any)[`${key}Validator`]()
                     continue
                 }
@@ -61,6 +93,7 @@ export function MixinValidatableTrait<TBase extends AnyConstructor>(Base: TBase)
                         (it as ValidatableTrait).validate()
                         this.hasFile = it.hasFile
                     })
+                    continue
                 }
                 if (value instanceof ValidatableTrait) {
                     value.validate()
@@ -68,6 +101,7 @@ export function MixinValidatableTrait<TBase extends AnyConstructor>(Base: TBase)
                     if (!value.isValid()) {
                         this.addErrorFor("nestedErrors", key)
                     }
+                    continue
                 }
             }
             let errors = this.properties.errors

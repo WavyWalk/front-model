@@ -4,15 +4,17 @@ import { IModelConstructor } from '../interfaces/IModelConstructor';
 import { AssociationTypesEnum } from '../AssociationTypesEnum';
 import { ModelRegistry } from '../ModelRegistry'
 
-export function HasOne(stringifiedClassName: string, parseAliases: Array<string> = null) {
+export function HasOne(stringifiedClassName: string, parseAliases: Array<string> | null = null) {
 
     return function(target: BaseModel, propertyName: string) {
 
         let getter = function() {
+            //@ts-ignore
             return this.properties[propertyName]
         }
 
         let setter = function(valueToAssign: any) {
+            //@ts-ignore
             this.properties[propertyName] = valueToAssign
         }
 

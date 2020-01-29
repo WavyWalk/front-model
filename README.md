@@ -1,9 +1,10 @@
 # What's it
 Adds a model layer to your Typescript based front-end apps (best works with SPA's), providing:
+* Eases out communicating with your API backends
+* Eases building complex SPAs, adding the missing M to your views
 * De/serializing JSON to/from your models, mapping values to defined properties. Serializes to multipart encoded form if needed.
-* Eases out xhr communication with server
 * Supports associations. Eases handling collections of models.
-* Gives you a validation base.
+* Provides validation base.
 # Why
 The good ol' Models on the front-end is nowadays almost forgotten and unused, we're passing some weekly typed non consistent
 objects back and forth, we're using some generic stores. Let's get to the roots!
@@ -16,7 +17,7 @@ or include in package.json
 ```typescript
 import {BaseModel, Property, HasMany, HasOne, ApiEndpoint, ModelCollection, RequestOptions} from "front-model"
 class User extends BaseModel {
-        
+    
     @Property
     id?: number
    
@@ -38,47 +39,43 @@ class User extends BaseModel {
 
 let friend = new User({name: "foo"})
 let account = new Account({email: "joe@doe.com"})
-let user = User({name: "joe"})
+let user = new User({name: "joe"})
 user.account = account
 user.friends.push(friend)
 
 //requests with json body "user: {name: "joe", account: {email: "joe@doe.com"}, friends: [{name: "foo"}]}"
-user.save().then(function(createdUser){ //parses request from your server {name: "joe", account: {email: "joe@doe.com"}, friends: [{name: "foo"}]}
-    createdUser.id // 1
-    createdUser.name //joe
-    createdUser.account.email //"joe@doe.com"
-    createdUser.friends //ModelCollection<User>[User{name: "foo"}]
-    if (!createdUser.isValid()) {
-        this.setState({user: createdUser}) //render errors in case server hints of errors
-        return
-    }
-    //on success redirect to new user welcome page or notify some user manager service
-})
+// server sends back {id: 3, name: "joe", account: {email: "joe@doe.com"}, friends: [{id: 2, name: "foo"}]}
+let createdUser = await user.save()
 
-//in UserShowComponent
-componentDidMount() {
-    User.show({wilds: {id: 1}}).then(function(user) { // parses json response from server
-        user.id // 1
-        user.name // "joe"
-        user.friends //ModelCollection<User>
-        this.setState({user})
-    })
+createdUser.id // 1
+createdUser.name //joe
+createdUser.account.email //"joe@doe.com"
+createdUser.friends //ModelCollection<User>[User{name: "foo"}]
+if (!createdUser.isValid()) {
+    setUsers({user: createdUser}) //render errors in case server hints of errors
+    return
+}
+//on success redirect to new user welcome page or notify some user manager service
+
+//                      ---------------
+//in User component
+useEffect() {
+    const user =User.show({wilds: {id: 1}}) // parses json response from server
+    user.id // 1
+    user.name // "joe"
+    user.friends //ModelCollection<User>
+    setUser(user)
 }
 ```
 # Model registration
-Due to heavy usage of metaprogramming stuff, in some unreproducible cases (which mostly depend on weather outside), I encountered
-a circular dependencies bugs that were really hard to tackle.
-I couldn't find anything better than introducing a ModelRegistry.
-Basically you create some singleton with e.g. run method in which `ModelRegistry.registeredModels` will be assigned with object
-referencing your model class. That method is supposed to be called on your app bootstrapping. But treat it philosophically,
-you have a file where you can track all the models you have :).
-example: 
+Because of associations support between models, in cases where models reference each other, you may encounter circular dependencies issues.
+To exclude and prevent those problems, the model have to be registered in the registry provided by the lib.
 ```typescript
 import { User } from './models/User'
 import { Account } from './models/Account'
 import { ModelRegistry } from 'front-model'
 export class ModelRegistrator {
-  //THIS UGLY HACK SOLVES SOME NASTY CIRCULAR DEPENDENCIES BUGS!
+
   static run(){
     ModelRegistry.registeredModels = {
         User,
@@ -87,18 +84,16 @@ export class ModelRegistrator {
   }
 
 }
-//in init application, in first context after interpreter done it's job
+//in init application, in first context after interpreter done it's job and before you use models.
 export function initApplication() {
     ModelRegistrator.run() //call that dude
-    render(
-        <BrowserApiEndpointr>
-            <ApiEndpoint path="/" component={ApplicationComponent}/>
-        </BrowserApiEndpointr>,
+    ReactDOM.render(
+        <App/>,
         document.getElementById("app"))
 }
 ```
 # Model properties
-Just decorate properties that you want to map with @Property. @Property has an alias options.
+Just decorate properties that you want to map with `@Property`. `@Property` has an alias options.
 When parsing, values under respective keys will be mapped to corresponding properties on models. 
 
 # Associations
@@ -112,7 +107,7 @@ expects appropriate type.
 Both associations should be provided with a stringified name of a an associated class (see model registration for a reason behind). 
 
 When parsing appropriate constructors will be called, and your full graph will be validly serialized
-to models.
+to models, even if it's nested many levels down.
 
 # Parsing
 just call your model's constructor with an object:
@@ -126,22 +121,22 @@ you can also provide aliases for properties (incl. multiple) and associated, and
 
 # Serializing to js object
 `user.getPureProperties() //{name: "joe", account: {email: "joe@doe"}, friends: [{name: "foo"}]}`
-More preferred way - if you implement for example `static jsonRoot = "user"` on your model's class, than it'd serialize like {user: {name: "joe", account: {email: "joe@doe"}, friends: [{name: "foo"}]}}.
-# Xhr
+To include the root name in json, define `static jsonRoot = "${rootKeyName}"` on your model's class, than it'd serialize like `{\`${rootKeyName}\`: {name: "joe", account: {email: "joe@doe"}, friends: [{name: "foo"}]}}`.
+# API communication
 
 Treat your server as a db/pure api. Communicate with it in restfull manner.
 
-Use @ApiEndpoint decorations with appropriate properties (take look at it's interface implementation for details).
+Use @ApiEndpoint decorators with appropriate properties (take look at it's interface for details).
 
-You can decorate both static and instance methods.
+Both static and instance methods can be decorated.
 
-Basically you provide ApiEndpoint an HTTP method, and configuration object with (minimum required) url.
+Basically you provide ApiEndpoint an HTTP method, and configuration object with url see `RequestOptions` for implementation details.
 
-If in url you provide something prefixed with ':', this token will be treated as named parameter.
+If in url you provide url path token prefixed with ':', this token will be treated as named parameter.
 
-You can either manually provide it when calling a 'route' call, or allow it to be treated automatically.
+You can either manually provide it when calling a 'route' call, or allow it to be populated automatically.
 ```typescript
-@ApiEndpoint("POST", {url: "/api/user/:id/foo", defaultWilds: ["id"]}) //defaultWilds specifies that :id, should be replaced with value of id property.
+@ApiEndpoint("POST", {url: "/api/user/:id/foo", defaultWilds: ["id"]}) //defaultWilds specifies that :id, should be replaced with value of id property on model instance.
 create: (options?: RequestOptions) => Promise<User> //always specify a type without implementation, method it'self will be programmatically added and implemented
 
 user.id = 1
@@ -150,34 +145,38 @@ user.create({wilds: {id: 3}}) //will query /api/user/30 with serialized payload
 ```
 When providing a route, two methods (or one of the implemented) will be called IF IMPLEMENTED (not required) - before, and respectively after your request:
 
-before[capitalized name of the method]Request(options?: RequestOptions)
+`before${capitalizedMethodNameOfYourRequestMethod}Request(options?: RequestOptions)`
 
 after\[capitalized name of the method]Request(options: RequestOptions)
 
 You get your response in after method via options.response.
 
+example:
 ```typescript
 @ApiEndpoint("GET", {url: '/api/user/funky/:id}')
 saveFunkyUser: (options?: RequestOptions) => Promise<User>
 
 beforeSaveFunkyUserRequest(options: RequestOptions) {
+    // !!! the params !!! on options object is the request payload, whatever you put there will be treated as such.
     options.params = this.getPureProperties()
     options.params["isFunky"] = true
     options.serializeAsForm = true
+    // do ANY thing that only allowed on xhr object
 }
 
 afterSaveFunkyUserRequest(options: RequestOptions) {
-    options.deferredPromise.then((resp)=>{
-          let funkyUser = new User(resp)
-          funkyUser.validate()
-          funkyUser.doSomeFunkyStuff()
-          return funkyUser
-    })
+    let response = await options.rootPromise    
+    let funkyUser = new User(response)
+    funkyUser.validate()
+    funkyUser.doSomeFunkyStuff()
+    return funkyUser
 }
 ```
 As seen those methods are used for modifying request being done, and manually handling the response of request's promise.
 
-By default route's response will yield a parsed json (an object), if you want to handle it yourself, pass yieldRawResponse = true, in before handler.
+By default route's response will yield a parsed json (an object), if you want to handle it yourself, pass yieldRawResponse = true.
+
+so promise will resolve with an standart xhr object so you can do whatever you want with it.
 
 Again if you do not implement those, they will just not be called.
 
@@ -186,7 +185,7 @@ By default, some before/after predefined handlers are automatically there for yo
 If you just decorate, instance methods: `create, update, destroy`, static methods: `show, index`, 
 following before/after handlers will be provided (you can override them if you want).
 
-`create` - before: will serialize model to object and pass it to request body. after: will parse response to model and call `validate()` on it
+`create` - before: will serialize model to object and pass it to request body e.g. as `options.params = model.getPureProperties()`. after: will parse response to model and call `validate()` on it
 
 `update` - same as create
 
@@ -224,23 +223,26 @@ user.create().then((createdUser)=>{ // no need to manually handle request body /
 
 # collections
 There is a ModelCollection<T> (look at it's implementation for details), which is just a simple array wrapper with some useful methods. 
-Your associated models, and multiple models, should be used through that type.
+Your associated models, and multiple models, should be used through that type. to access underlying array just use `modelCollection.array`
 
 usage:
 ```typescript
+// in model class body
 @HasMany("Account")
 accounts: ModelCollection<Account> //lazyly initialized to empty ModelCollection<Account>() // []
-
-//or
-
+// later in code
 users = new ModelCollection<User>()
 users.push(new User(), new User())
+//or
+users.array.push(new User())
+
+user.friends = users
 ```
 
 # Validations
 Lib gives you some convenient base to working with errors on client. It also handles errors returned from a server.
 
-If you have a @Property decorated property, and if you implement function \[property name]Validator() (if not implemented nothing happens),
+If you have a `@Property` decorated property, and if you implement function \[property name]Validator() (if not implemented nothing happens),
 this function will be called during validation (e.g. if you want to prevalidate on client before sending to server).
 ```typescript
 @Property
@@ -263,19 +265,20 @@ if (!user.isValid()) {
 
 ```
 The thing is that errors are also serialized if returned from server, so it makes it easy to handle them on client side.
-
 say e.g.:
 ```typescript
-user.specificCreate((user)=>{ // response from server {name: "joe", errors: {name: ["to many joes aboard"]}}
-    user.validate()
-    user.isValid() // false
-    user.errors // {name: ["to many joes aboard"]}
-    this.setState = {user}
-    // in your component
-    // if (this.state.user.hasErrorsFor(name)) {
-    //      render e.g user.getErrorsFor("name") near input    
-})
 
+const createdUser = user.create() // response from server {name: "joe", errors: {name: ["to many joes aboard"]}}
+createdUser.isValid() // false
+createdUser.isValid() // false
+createdUser.errors // {name: ["to many joes aboard"]}
+setUser({user})
+
+return <div>
+   {!user.isValid() &&
+      <p>your name is invalid {user.getFirstErrorFor('name')}</p>
+   }
+</div>
 ```
 errors are serialized on getPureProperties() if present, if you don't want that call resetErrors() before serialization to json.
 
@@ -287,7 +290,7 @@ model will be serialized to form and that multipart request will be sent (ex.bel
 So you just treat it uniformly and use one interface to work both with json and encoded form.
 As extra you can pass nested or multiple files// theres a way for listening to upload status/process will doc later
 
-this example uses some other my lib, but you'll get the idea how can models be used
+this example uses some other my lib *(uses old class component/will update it later), but you'll get the idea how can models be used
 ```typescript
 export class Create extends MixinFormableTrait(BaseReactComponent) { // from other lib
 
@@ -308,32 +311,44 @@ export class Create extends MixinFormableTrait(BaseReactComponent) { // from oth
     }
 
     @autobind
-    submit(){
+    async submit(){
         this.collectInputs() 
         let user = this.state.user
         user.avatar.file // File
         //will send an encoded form with hash format:
         //like user[name]
         //     user[avatar][file] etc
-        user.create().then((newUser)=>{ // you can pass there an RequestOptions; {serializeAsForm: true}// this case its detected automatically if file present
-            if (newUser.isValid()) { 
-                CurrentUser.instance.logIn(newUser) // dispatches some events, redirects notifies other components
-                return
-            } 
-            user.mergeWith(newUser) //will doc later, in this case to not lose a file from input
-            this.setState({user}) // render an inputs with errors
-        })
+        const newUser = await user.create({serializeAsForm: true}) // you can pass there an RequestOptions; {serializeAsForm: true}// this case its detected automatically if file present
+        if (newUser.isValid()) { 
+            CurrentUser.instance.logIn(newUser) // dispatches some events, redirects notifies other components
+            return
+        } 
+        user.mergeWith(newUser) //will doc later, in this case to not lose a file from input
+        this.setState({user}) // render an inputs with errors
     }
 }
 ```
+# Request interception / failed request handling.
+you can define `XhrRequestMaker.onFailHandler` which will be called on xhr error.
+e.g. 
+```typescript jsx
+// this be called on every xhr exception, for specific cases you may always resort to {yieldRawResponse: true} 
+XhrRequestMaker.onFailHandler =  (xhr: XMLHttpRequest) => {
+    const statusCode = xhr.status
+    if (UNAUTHORIZED_STATUS_CODES.includes(statusCode)) {
+        RouterNavigationUtils.pushToLogin()
+    }
+}
+// if no handler specified you can youse the await catch to handle an error.
+```
 
 # Dependences
-es-6 promises.
+no dependencies.
 For Typescript enable decoration processing.
 Supposed to work only with Typescript.
 
 # Licenses
-MIT or FTPL
+MIT
 
 
 
