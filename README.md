@@ -59,13 +59,13 @@ if (!createdUser.isValid()) {
 
 //                      ---------------
 //in User component
-useEffect() {
+useEffect(() => {
     const user =User.show({wilds: {id: 1}}) // parses json response from server
     user.id // 1
     user.name // "joe"
     user.friends //ModelCollection<User>
     setUser(user)
-}
+}, [])
 ```
 # Model registration
 Because of associations support between models, in cases where models reference each other, you may encounter circular dependencies issues.
