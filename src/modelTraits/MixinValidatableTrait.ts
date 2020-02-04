@@ -135,5 +135,13 @@ export function MixinValidatableTrait<TBase extends AnyConstructor>(Base: TBase)
                 }
             }
         }
+
+        validateIfNotBlank(propertyName: keyof this, errorMessage: string) {
+            const propertyValue = this[propertyName]
+            this.removeErrorsFor(propertyName as string)
+            if (!propertyValue) {
+                this.addErrorFor(propertyName as string, errorMessage)
+            }
+        }
     }
 }

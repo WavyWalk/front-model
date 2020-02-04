@@ -1,16 +1,17 @@
 import {BaseModel} from "../BaseModel"
 import {IModelProperties} from '../interfaces/IModelProperties';
 import {XhrRequestMaker} from '../index';
+import {ObjectToQueryStringSerializer} from "../utils/ObjectToQueryStringSerializer"
 
 
 export interface RequestOptions {
     url?: string,
     method?: string,
     caller?: BaseModel,
-    wilds?: { [id: string]: string }
+    wilds?: { [id: string]: string|number }
     yieldRawResponse?: boolean,
     urlPrefix?: string,
-    mergeToPayload?: IModelProperties,
+    toMergeWithPayload?: IModelProperties,
     serializeAsForm?: boolean,
     arbitrary?: any,
     payload?: IModelProperties,
@@ -22,6 +23,8 @@ export interface RequestOptions {
     rootPromise?: Promise<any>,
     rootResolve?: (...args: any[]) => any,
     rootReject?: ((...args: any[]) => any),
+    rejectOnError?: boolean,
+    queryParams?: {[id:string]: any}
 }
 
 
@@ -47,7 +50,11 @@ class UrlPreparator {
         }
     }
 
-    produceUrl(options?: { wildValues?: { [id: string]: any } | null, prefix?: string }): string {
+    produceUrl(options?: {
+        wildValues?: { [id: string]: any } | null,
+        prefix?: string,
+        queryParams?: {[id:string]: any}
+    }): string {
         let url: string | undefined
 
         if (this.hasWilds) {
@@ -65,7 +72,22 @@ class UrlPreparator {
             url = `${options.prefix}/${url}`
         }
 
+        if (options && options.queryParams) {
+            let queryString = ObjectToQueryStringSerializer.serialize(options.queryParams)
+            if (queryString) {
+                if (UrlPreparator.containsQueryStringDelimiter(url)) {
+                    url = `${url}&${queryString}`
+                } else {
+                    url = `${url}?${queryString}`
+                }
+            }
+        }
+
         return url
+    }
+
+    static containsQueryStringDelimiter(url: string) {
+        return url.indexOf(`?`) > -1
     }
 
 }
@@ -73,8 +95,6 @@ class UrlPreparator {
 interface ApiEndpointOptions {
     url: string,
     defaultWilds?: Array<string>,
-    beforeHandler?: (options: RequestOptions) => any,
-    afterHandler?: (options: RequestOptions) => Promise<any>,
 }
 
 class ApiEndpointHandler {
@@ -98,14 +118,14 @@ class ApiEndpointHandler {
     produceUrl(
         caller: BaseModel,
         providedWilds?: { [id: string]: any },
-        prefix?: string
+        prefix?: string,
+        queryParams?: {[id:string]:any}
     ): string {
+        let wildValues: {[id:string]: any}|null = null
         if (this.urlPreparator.hasWilds) {
-            let wildValues = this.populateWildValues(caller, providedWilds!)
-            return this.urlPreparator.produceUrl({wildValues, prefix})
-        } else {
-            return this.urlPreparator.produceUrl({wildValues: null, prefix})
+            wildValues = this.populateWildValues(caller, providedWilds!)
         }
+        return this.urlPreparator.produceUrl({wildValues, prefix, queryParams})
     }
 
     private populateWildValues(
@@ -113,7 +133,6 @@ class ApiEndpointHandler {
         wilds: { [id: string]: any }
     ): { [id: string]: string } {
         let wildValues: { [id: string]: any } = {}
-
         for (let key of Object.keys(this.urlPreparator.wildsToIndexMap)) {
             if (wilds && wilds[key]) {
                 wildValues[key] = wilds[key]
@@ -136,63 +155,50 @@ export function ApiEndpoint(httpMethod: string, options: ApiEndpointOptions) {
 
         let requestFunction = async function (this: BaseModel | any, options: RequestOptions = {}): Promise<any> {
 
-            let beforeRequestFunc
-            if (apiEndpointHandler.options.beforeHandler) {
-                beforeRequestFunc = apiEndpointHandler.options.beforeHandler
-            } else {
-                beforeRequestFunc = this[`before${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`] || null
-            }
+                options.caller = this
+                options.url = apiEndpointHandler.produceUrl(this, options.wilds, options.prefix, options.queryParams)
+                options.httpMethod = httpMethod
 
-            let afterRequestFunc
-            if (apiEndpointHandler.options.afterHandler) {
-                afterRequestFunc = apiEndpointHandler.options.afterHandler
-            } else {
-                afterRequestFunc = this[`after${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`] || null
-            }
+                if (!options.resolveWithJson) {
+                    options.resolveWithJson = true
+                }
 
-            options.caller = this
-            options.url = apiEndpointHandler.produceUrl(this, options.wilds, options.prefix)
-            options.httpMethod = httpMethod
+                if (this[`before${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`]) {
+                    this[`before${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`](options)
+                }
 
-            if (!options.resolveWithJson) {
-                options.resolveWithJson = true
-            }
+                if (this.hasFile) {
+                    options.serializeAsForm = true
+                }
 
-            if (beforeRequestFunc) {
-                beforeRequestFunc(options)
-            }
-            if (this.hasFile) {
-                options.serializeAsForm = true
-            }
+                options.httpMethod = httpMethod
+                if (options.serializeAsForm) {
+                    options.requestHeaders = null
+                }
 
-            options.httpMethod = httpMethod
-            if (options.serializeAsForm) {
-                options.requestHeaders = null
-            }
+                let rootResolve!: (...args: any[])=>any
+                let rootReject!: (...args: any[])=>any
 
-            let rootResolve!: (...args: any[])=>any
-            let rootReject!: (...args: any[])=>any
+                options.rootPromise = new Promise((resolve, reject)=>{
+                    rootResolve = resolve
+                    rootReject = reject
+                })
 
-            options.rootPromise = new Promise((resolve, reject)=>{
-                rootResolve = resolve
-                rootReject = reject
-            })
+                options.rootReject = rootReject
+                options.rootResolve = rootResolve
 
-            options.rootReject = rootReject
-            options.rootResolve = rootResolve
+                const requestResult = XhrRequestMaker.create(options as RequestOptions)
 
-            const requestResult = XhrRequestMaker.create(options as RequestOptions)
+                if (options.yieldRawResponse) {
+                    return await requestResult
+                }
 
-            if (options.yieldRawResponse) {
+                if (this[`after${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`]) {
+                    return await this[`after${propertyName.charAt(0).toUpperCase() + propertyName.slice(1)}Request`](options)
+                }
+
                 return await requestResult
             }
-
-            if (afterRequestFunc) {
-                return await afterRequestFunc(options as RequestOptions)
-            }
-
-            return await requestResult
-        }
 
         ;(target as any)[propertyName] = requestFunction
 

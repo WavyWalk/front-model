@@ -1,11 +1,16 @@
 import {IModelProperties} from '../interfaces/IModelProperties';
-import {RequestOptions} from '../annotations/ApiEndpoint'
+import {RequestOptions} from '../decorators/ApiEndpoint'
 
 export class XhrRequestMaker {
 
     static userDefinedRequestOptionsHandler: (options: RequestOptions) => void
 
+    static withCredentials: boolean = false
+
     static onFailHandler: (xhr: XMLHttpRequest) => void
+
+    static executeOnRequestStart?: (xhr?: XMLHttpRequest) => void
+    static executeOnRequestEnd?: (xhr?: XMLHttpRequest) => void
 
     static get(options: RequestOptions): Promise<any> {
         options.httpMethod = "GET"
@@ -48,13 +53,19 @@ export class XhrRequestMaker {
         }
         this.xhr = new XMLHttpRequest()
 
-        if (this.options.extraParams) {
-            this.options.params = {...this.options.params, ...this.options.extraParams}
+        if (this.options.toMergeWithPayload) {
+            this.options.payload = {...this.options.payload, ...this.options.toMergeWithPayload}
         }
 
         this.setParameters()
 
         this.xhr.open(this.options.httpMethod as any, this.options.url as any)
+
+        XhrRequestMaker.executeOnRequestStart?.(this.xhr)
+
+        if (XhrRequestMaker.withCredentials) {
+            this.xhr.withCredentials = true
+        }
         if (options.responseType) {
             (this.xhr as any).responseType = options.responseType
         }
@@ -64,7 +75,11 @@ export class XhrRequestMaker {
         }
         this.xhr.onloadstart = function (e) {
         }
-        this.xhr.onloadend = function (e) {
+        this.xhr.onloadend = (e) => {
+            XhrRequestMaker.executeOnRequestEnd?.(this.xhr)
+        }
+        this.xhr.onerror = () => {
+            this.handleFail()
         }
         this.setHeaders()
         this.setOnLoad()
@@ -72,11 +87,11 @@ export class XhrRequestMaker {
     }
 
     send() {
-        if (this.options.httpMethod != "GET" && this.options.params) {
+        if (this.options.httpMethod != "GET" && this.options.payload) {
             if (this.options.serializeAsForm) {
-                this.xhr.send(this.createFormData(this.options.params))
+                this.xhr.send(this.createFormData(this.options.payload))
             } else {
-                this.xhr.send(JSON.stringify(this.options.params))
+                this.xhr.send(JSON.stringify(this.options.payload))
             }
         } else {
             this.xhr.send()
@@ -85,8 +100,8 @@ export class XhrRequestMaker {
 
     setParameters() {
         let options = this.options
-        if (options.httpMethod === "GET" && options.params) {
-            options.url = `${options.url}?${this.objectToQueryString(options.params)}`
+        if (options.httpMethod === "GET" && options.payload) {
+            options.url = `${options.url}?${this.objectToQueryString(options.payload)}`
         }
     }
 
@@ -119,11 +134,7 @@ export class XhrRequestMaker {
                             this.options.rootResolve!(JSON.parse(this.xhr.responseText))
                         } catch (e) {
                             console.error(e)
-                            if (XhrRequestMaker.onFailHandler) {
-                                XhrRequestMaker.onFailHandler(this.xhr)
-                            } else {
-                                this.options.rootReject!(this.xhr)
-                            }
+                            this.handleFail()
                         }
                     } else {
                         this.options.rootResolve!({})
@@ -132,12 +143,16 @@ export class XhrRequestMaker {
                     this.options.rootResolve!(this.xhr)
                 }
             } else {
-                if (XhrRequestMaker.onFailHandler) {
-                    XhrRequestMaker.onFailHandler(this.xhr)
-                } else {
-                    this.options.rootReject!(this.xhr)
-                }
+                this.handleFail()
             }
+        }
+    }
+
+    handleFail = () => {
+        if (XhrRequestMaker.onFailHandler && !this.options.rejectOnError) {
+            XhrRequestMaker.onFailHandler(this.xhr)
+        } else {
+            this.options.rootReject!(this.xhr)
         }
     }
 

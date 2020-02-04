@@ -1,9 +1,9 @@
-export { RequestOptions } from "./annotations/ApiEndpoint";
-export { Property } from "./annotations/Property";
-export { HasMany } from "./annotations/HasMany";
-export { HasOne } from "./annotations/HasOne";
+export { RequestOptions } from "./decorators/ApiEndpoint";
+export { Property } from "./decorators/Property";
+export { HasMany } from "./decorators/HasMany";
+export { HasOne } from "./decorators/HasOne";
 export { BaseModel } from "./BaseModel";
-export { ApiEndpoint } from "./annotations/ApiEndpoint";
+export { ApiEndpoint } from "./decorators/ApiEndpoint";
 export { ModelRegistry } from './ModelRegistry';
 export { ModelCollection } from './ModelCollection';
 export { XhrRequestMaker } from './utils/XhrRequestMaker';
