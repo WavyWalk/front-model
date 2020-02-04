@@ -3,7 +3,7 @@ import {ModelCollection} from './ModelCollection'
 import {MixinSerializableTrait} from "./modelTraits/MixinSerializableTrait"
 import {MixinValidatableTrait} from "./modelTraits/MixinValidatableTrait"
 import {RequestOptions} from './decorators/ApiEndpoint'
-import {IPaginationInfo} from "../../../utils/pagination/IPaginationInfo"
+import {IPagination} from "./utils/IPaginatedResponse"
 
 class ModelClassMixinContainer {
     constructor(...args: Array<any>) {
@@ -66,7 +66,7 @@ export class BaseModel extends MixinSerializableTrait(MixinValidatableTrait(Mode
         return collection
     }
 
-    static parsePaginated<T>(response: {result: any[], pagination: IPaginationInfo}) {
+    static parsePaginated<T>(response: {result: any[], pagination: IPagination}) {
         let collection = new ModelCollection<BaseModel>()
         let returnedArray: Array<IModelProperties> = response.result
         returnedArray.forEach((properties) => {
