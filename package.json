@@ -1,6 +1,6 @@
 {
   "name": "front-model",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "repository": "WavyWalk/front-model",
   "description": "Model layer for front-end Typescript based applications",
   "private": false,

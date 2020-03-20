@@ -8,7 +8,7 @@ export interface RequestOptions {
     url?: string,
     method?: string,
     caller?: BaseModel,
-    wilds?: { [id: string]: string|number }
+    wilds?: { [id: string]: string|number|any }
     yieldRawResponse?: boolean,
     urlPrefix?: string,
     toMergeWithPayload?: IModelProperties,
@@ -24,7 +24,8 @@ export interface RequestOptions {
     rootResolve?: (...args: any[]) => any,
     rootReject?: ((...args: any[]) => any),
     rejectOnError?: boolean,
-    queryParams?: {[id:string]: any}
+    queryParams?: {[id:string]: any},
+    isLoadingToggle?: (value: boolean)=>any
 }
 
 

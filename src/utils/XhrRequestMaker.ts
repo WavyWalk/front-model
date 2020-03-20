@@ -63,6 +63,10 @@ export class XhrRequestMaker {
 
         XhrRequestMaker.executeOnRequestStart?.(this.xhr)
 
+        if (this.options.isLoadingToggle) {
+            this.options.isLoadingToggle(true)
+        }
+
         if (XhrRequestMaker.withCredentials) {
             this.xhr.withCredentials = true
         }
@@ -77,9 +81,15 @@ export class XhrRequestMaker {
         }
         this.xhr.onloadend = (e) => {
             XhrRequestMaker.executeOnRequestEnd?.(this.xhr)
+            if (this.options.isLoadingToggle) {
+                this.options.isLoadingToggle(false)
+            }
         }
         this.xhr.onerror = () => {
             this.handleFail()
+            if (this.options.isLoadingToggle) {
+                this.options.isLoadingToggle(false)
+            }
         }
         this.setHeaders()
         this.setOnLoad()
