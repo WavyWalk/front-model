@@ -172,9 +172,6 @@ export function ApiEndpoint(httpMethod: string, options: ApiEndpointOptions) {
                 }
 
                 options.httpMethod = httpMethod
-                if (options.serializeAsForm) {
-                    options.requestHeaders = null
-                }
 
                 let rootResolve!: (...args: any[])=>any
                 let rootReject!: (...args: any[])=>any

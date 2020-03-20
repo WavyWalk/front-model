@@ -163,6 +163,9 @@ export class XhrRequestMaker {
                 this.xhr.setRequestHeader(key, value)
             }
         }
+        if (this.options.serializeAsForm) {
+            return
+        }
         if (!this.options.requestHeaders || !this.options.requestHeaders['Content-Type']) {
             this.xhr.setRequestHeader('Content-Type', 'application/json')
         }

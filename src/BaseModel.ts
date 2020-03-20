@@ -13,6 +13,15 @@ class ModelClassMixinContainer {
 export class BaseModel extends MixinSerializableTrait(MixinValidatableTrait(ModelClassMixinContainer)) {
     properties!: IModelProperties;
 
+    static reactKey = 0
+
+    private reactKey!: number
+
+    getReactKey = () => {
+        this.reactKey = this.reactKey ?? (BaseModel.reactKey += 1)
+        return this.reactKey
+    }
+
     constructor(properties?: IModelProperties) {
         super(properties)
         this.init()

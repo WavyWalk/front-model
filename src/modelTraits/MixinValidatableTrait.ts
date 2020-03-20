@@ -45,6 +45,16 @@ export function MixinValidatableTrait<TBase extends AnyConstructor>(Base: TBase)
             }
         }
 
+        replaceErrorFor(propertyName: string, ...errorsToAdd: string[]) {
+            if (this.errors) {
+                let errors = this.errors[propertyName]
+                this.errors[propertyName] = errorsToAdd
+            } else {
+                this.errors = {}
+                this.errors[propertyName] = errorsToAdd
+            }
+        }
+
         removeHasNestedErrorsFlag() {
 
         }
@@ -107,7 +117,7 @@ export function MixinValidatableTrait<TBase extends AnyConstructor>(Base: TBase)
             let errors = this.properties.errors
             if (errors) {
                 Object.keys(errors).forEach((key)=>{
-                    this.addErrorFor(key, errors[key]) 
+                    this.addErrorFor(key, ...errors[key])
                 })
             }
             this.properties.errors = undefined
