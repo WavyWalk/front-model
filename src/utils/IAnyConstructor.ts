@@ -1,0 +1,1 @@
+export type IAnyConstructor<T = {}> = new (...args: any[]) => T

@@ -1,4 +1,5 @@
 export class ObjectToQueryStringSerializer {
+
     static serialize(objectToSerialize?: {[id:string]: any}) {
         if (!objectToSerialize) {
             return null
@@ -19,5 +20,5 @@ export class ObjectToQueryStringSerializer {
         }
         return result.join("&");
     }
-}
 
+}

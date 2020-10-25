@@ -1,9 +1,14 @@
-export { RequestOptions } from "./decorators/ApiEndpoint";
-export { Property } from "./decorators/Property";
-export { HasMany } from "./decorators/HasMany";
-export { HasOne } from "./decorators/HasOne";
-export { BaseModel } from "./BaseModel";
-export { ApiEndpoint } from "./decorators/ApiEndpoint";
-export { ModelRegistry } from './ModelRegistry';
-export { ModelCollection } from './ModelCollection';
-export { XhrRequestMaker } from './utils/XhrRequestMaker';
+/** types exported that weirdly for babel  envs*/
+import * as AllIRequestOptions from "./apihandling/IRequestOptions"
+export type IRequestOptions = AllIRequestOptions.IRequestOptions
+
+import * as AllApiEndpoint from "./apihandling/ApiEndpoint"
+export type MakeRequest = AllApiEndpoint.MakeRequest
+
+export { Property } from "./property/Property"
+export { HasMany } from "./realtions/HasMany"
+export { HasOne } from "./realtions/HasOne"
+export { BaseModel } from "./BaseModel"
+export { ApiEndpoint } from "./apihandling/ApiEndpoint"
+export {ModelValidator} from './validation/ModelValidator'
+export {frontModelConfig} from './config/FrontModelConfig'

@@ -1,85 +1,143 @@
-import {IModelProperties} from './interfaces/IModelProperties';
-import {ModelCollection} from './ModelCollection'
-import {MixinSerializableTrait} from "./modelTraits/MixinSerializableTrait"
-import {MixinValidatableTrait} from "./modelTraits/MixinValidatableTrait"
-import {RequestOptions} from './decorators/ApiEndpoint'
+import {IModelData} from './interfaces/IModelData'
+import {ModelValidator} from "./validation/ModelValidator"
+import {IRelationsConfig} from "./realtions/IRelationsConfig"
+import {modelDeserializer} from "./serialization/ModelDeserializer"
+import {modelSerializer} from "./serialization/ModelSerializer"
+import {IRequestOptions} from "./apihandling/IRequestOptions"
 import {IPagination} from "./utils/IPaginatedResponse"
+import {ModelSerializeArgs} from "./serialization/serializationShared"
+import {modelMerger} from "./serialization/ModelMerger"
 
-class ModelClassMixinContainer {
-    constructor(...args: Array<any>) {
-    }
-}
+export class BaseModel {
 
-export class BaseModel extends MixinSerializableTrait(MixinValidatableTrait(ModelClassMixinContainer)) {
-    properties!: IModelProperties;
+    /**
+     * core of your model
+     * plain object that keeps modelData required for your business
+     * class modelData annotated with
+     * @see Property will get set values here directly under same key
+     * accessing `modelData` directly is discouraged
+     * */
+    modelData!: IModelData;
 
-    static reactKey = 0
+    /**
+     * will be lazily initialized in getter
+     * @see validator
+     */
+    _validator?: any
 
-    private reactKey!: number
-
-    getReactKey = () => {
-        this.reactKey = this.reactKey ?? (BaseModel.reactKey += 1)
-        return this.reactKey
-    }
-
-    constructor(properties?: IModelProperties) {
-        super(properties)
-        this.init()
-    }
-
-    static jsonRoot = null
-
-    getJsonRoot(): string {
-        return (this.constructor as typeof BaseModel).jsonRoot as any
-    }
-
-    serialize(root: boolean = true): IModelProperties {
-        let objectToReturn: IModelProperties = {}
-        let propertiesCopy = {...(this.properties)}
-        delete propertiesCopy.errors
-
-        for (let key of Object.keys(propertiesCopy)) {
-            let value = propertiesCopy[key]
-            objectToReturn[key] = this.normalizeWhenSerializing(value, false)
-        }
-        if (root && this.getJsonRoot()) {
-            let jsonRoot = this.getJsonRoot()
-            let objectToReturnWithRoot: IModelProperties = {}
-            objectToReturnWithRoot[jsonRoot] = objectToReturn
-            return objectToReturnWithRoot
-        } else {
-            return objectToReturn
-        }
+    /**
+     * just invokes constructor passing the modelData,
+     * additionally gives you a typings for serializeOptions.
+     * first arg some weird shit to get typing of static "this" so to say :)
+     * */
+    static deserialize<T>(this: new () => T, modelData?: any, serializeOptions?: ModelSerializeArgs<T>): T {
+        return new (this as any)(modelData, serializeOptions) as T
     }
 
-    normalizeWhenSerializing(value: any, root: boolean = false): any {
-        if (value instanceof BaseModel) {
-            return value.serialize(root)
-        } else if (value instanceof ModelCollection) {
-            let mapped = value.array.map((it) => {
-                return (it as BaseModel).serialize(false)
-            })
-            return mapped
-        } else {
-            return value
-        }
+    constructor(modelData?: any, serializeOptions?: ModelSerializeArgs<any>) {
+        /** @see ModelDeserializer */
+        this.deserializeModelData(modelData, serializeOptions)
     }
 
-    static async afterIndexRequest(options: RequestOptions): Promise<any> {
-        const resp = await options.rootPromise
-        let collection = new ModelCollection<BaseModel>()
-        let returnedArray: Array<IModelProperties> = resp
-        returnedArray.forEach((properties) => {
-            collection.push(new this(properties))
+    private deserializeModelData(modelData?: any, serializeOptions?: ModelSerializeArgs<this>) {
+        /** @see ModelDeserializer */
+        this.modelData = modelDeserializer.deserializeModelData({
+            relationsConfig: (this.constructor as typeof BaseModel).getRelationsConfig(),
+            modelData: modelData,
+            serializeOptions: serializeOptions
         })
-        return collection
     }
 
+    /**
+     * just a shortcut so you don't access via modelData.errors
+     */
+    get errors() {
+        return this.modelData.errors
+    }
+
+    set errors(value) {
+        this.modelData.errors = value
+    }
+
+    /**
+     * lazily intializes validator
+     * by default will initialize base validator @see ModelValidator
+     * to serializeOptions for usage with specific validator e.g. your AccountValidator
+     * simply serializeOptions it with short implementation
+     * e.g.
+     * get validator() {return this._validator ??= new AccountValidator(this)}
+     */
+    get validator(): ModelValidator<any, any> {
+        return this._validator ??= new ModelValidator(this)
+    }
+
+    /** @see getRelationsConfig */
+    static relationsConfig: IRelationsConfig | null = null
+
+    /**
+     * required for hydrating related entities.
+     * @see HasMany, HasOne will populate this config, so later
+     * it be used during de/serialization
+     * as well in other contexts.
+     * e.g. will allow understand if property 'foo' is relation
+     * and get required metadata for such relation
+     */
+    static getRelationsConfig(): IRelationsConfig {
+        let config = this.relationsConfig
+        if (!config) {
+            this.relationsConfig = {}
+        }
+        return this.relationsConfig!
+    }
+
+    /**
+     * @see ModelSerializer
+     */
+    serialize(options: ModelSerializeArgs<this> = {}) {
+        return modelSerializer.serialize(
+            this, (this.constructor as typeof BaseModel).getRelationsConfig(), options
+        )
+    }
+
+    /**
+     * used in component based ui libs
+     * as well as when you need a unique key associated with this instance
+     * p.s unique in sense among T extends BaseModel instances in current process
+     */
+    static uniqueKey = 0
+    private uniqueKey!: number
+    getUniqueKey = () => {
+        this.uniqueKey = this.uniqueKey ?? (BaseModel.uniqueKey += 1)
+        return this.uniqueKey
+    }
+
+    /**
+     * utility method - to be used after response
+     * deserializes response data to array of this instances
+     */
+    static async handleCollectionResponse(options: IRequestOptions): Promise<any> {
+        const data = (await options.rootPromise!).data
+        return data!.map((modelData: any) => {
+            return new this(modelData)
+        })
+    }
+
+    /**
+     * utility method - to be used after response
+     * deserializes response data to instance of this
+     */
+    static async handleSingleResponse(options: IRequestOptions) {
+        const response = (await options.rootPromise!).data
+        return new this(response)
+    }
+
+    /**
+     * utility method to deserializing paginated response
+     */
     static parsePaginated<T>(response: {result: any[], pagination: IPagination}) {
-        let collection = new ModelCollection<BaseModel>()
-        let returnedArray: Array<IModelProperties> = response.result
-        returnedArray.forEach((properties) => {
-            collection.push(new this(properties))
+        let returnedArray: Array<IModelData> = response.result
+        let collection: BaseModel[] = returnedArray.map((modelData) => {
+            return new this(modelData)
         })
         return {
             result: collection,
@@ -87,56 +145,15 @@ export class BaseModel extends MixinSerializableTrait(MixinValidatableTrait(Mode
         }
     }
 
-    static async afterShowRequest(options: RequestOptions) {
-        const response = await options.rootPromise
-        let modelToReturn = new this(response)
-        modelToReturn.validate()
-        return modelToReturn
+    /**
+     * utility method - sets serialized this on request options
+     */
+    serializeToRequestData(options: IRequestOptions) {
+        options.data = this.serialize()
     }
 
-    static async afterNewRequest(options: RequestOptions) {
-        const response = await options.rootPromise
-        return new this(response)
-
+    replaceErrorsFrom<T extends BaseModel>(thatModel: T) {
+        modelMerger.replaceWithErrorsFrom(this, thatModel)
     }
 
-    static afterEditRequest(options: RequestOptions) {
-        this.afterShowRequest(options)
-    }
-
-    beforeUpdateRequest(options: RequestOptions) {
-        this.beforeCreateRequest(options)
-    }
-
-    async afterUpdateRequest(options: RequestOptions) {
-        return this.afterCreateRequest(options)
-    }
-
-    beforeCreateRequest(options: RequestOptions) {
-        options.payload = this.serialize()
-    }
-
-    async afterCreateRequest(options: RequestOptions) {
-        const response = await options.rootPromise
-        let modelToReturn = new (this.constructor as any)(response)
-        modelToReturn.validate()
-        return modelToReturn
-    }
-
-    beforeDeleteRequest(options: RequestOptions) {
-        this.beforeUpdateRequest(options)
-    }
-
-    afterDeleteRequest(options: RequestOptions) {
-        this.afterUpdateRequest(options)
-    }
-
-    beforeDestroyRequest(options: RequestOptions) {
-        this.beforeUpdateRequest(options)
-    }
-
-    afterDestroyRequest(options: RequestOptions) {
-        this.afterUpdateRequest(options)
-    }
-
-} 
+}

@@ -1,6 +1,6 @@
 import { BaseModel } from '../BaseModel';
-import { IModelProperties } from './IModelProperties';
+import {ModelSerializeArgs} from "../serialization/serializationShared"
 
 export interface IModelConstructor {
-    new (props: IModelProperties): BaseModel
+    new (modelData?: any, serializeOptions?: ModelSerializeArgs<any>): BaseModel
 }

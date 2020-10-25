@@ -1,2 +1,13 @@
-node_modules
+.vscode
 .idea
+/testserver/.yo-rc.json
+/testserver/yarn.lock
+/testserver/public/assets
+/testserver/dist
+/testserver/webpack_stats.json
+/testserver/public/assets/js
+/testserver/public/assets/css
+/node_modules/
+/testapp/node_modules/
+/testserver/node_modules/
+/dist

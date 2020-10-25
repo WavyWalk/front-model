@@ -1,4 +1,3 @@
-import {ModelCollection} from "../ModelCollection"
 import {BaseModel} from "../BaseModel"
 
 export interface IPagination {
@@ -7,7 +6,7 @@ export interface IPagination {
     pagesCount?: number
 }
 
-export interface IPaginatedResponse<MODEL_CLASS extends BaseModel> {
-    result: ModelCollection<MODEL_CLASS>,
+export interface IPaginatedResponse<MODEL_CLASS> {
+    result: Array<MODEL_CLASS>,
     pagination: IPagination
 }
