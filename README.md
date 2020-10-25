@@ -12,6 +12,7 @@
 
 # What's it
 Adds a model layer to your Typescript based front-end apps (best works with SPA's), providing:
+* Works both in browser and node, can be used for ssr centric apps.
 * Eases out communicating with your API backends
 * Eases building complex SPAs, adding the missing model layer to your frontend
 * De/serializing JSON to/from your models, mapping values to defined modelData. Serializes to multipart encoded form if needed.
@@ -24,10 +25,13 @@ objects back and forth, we're using some generic stores, in other words we make 
 Let's get to the roots!
 Adding models to your React apps makes so many things easier. 
 Combine them with some state management lib and you'll feel the difference.
+
 #How 
 npm i front-model 
 
 # Usage example
+Lib can be (should) used on both node and browser environments.
+
 ```typescript
 import {ApiEndpoint, BaseModel, HasMany, HasOne, IRequestOptions, Property} from "front-model" 
 import {MakeRequest} from "./ApiEndpoint"
