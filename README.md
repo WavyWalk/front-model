@@ -117,13 +117,13 @@ let user = new User({name: 'joe'})
 internally represented as:
 
 {
-    modelData: 'joe'
+    modelData: {name: 'joe'}
 }
 
 user.name = "foo"
 
 {
-    modelData: 'foo'
+    modelData: {name: 'foo'}
 }
 
 modelData may have any key/values (due to nature of frontend unfortunately it's rarely possible to type everything, 
@@ -141,7 +141,7 @@ relations required for instantiating data during de/serialization.
 
 `@HasMany`
 expects a `Array<T>` of specified class.
-if nothing's on property, when called will lazyly initialize to empty ModelCollection.
+if nothing's on property, when called will lazyly initialize to empty Array<OtherModel>.
 ```typescript
 class User {
     
